@@ -8,7 +8,9 @@ import psycopg
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:4200"])
+cors_origins = [o for o in os.getenv("CORS_ORIGINS", "http://localhost:4200").split(",") if o]
+if cors_origins:
+    CORS(app, origins=cors_origins)
 
 
 @app.get("/api/health")

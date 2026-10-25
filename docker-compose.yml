@@ -1,0 +1,52 @@
+# Local development: hot-reload for backend and frontend.
+# Usage: docker compose up --build
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rag_assistant
+    ports:
+      - "5433:5432"  # 5433 to avoid clashing with the host's Postgres
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rag_assistant"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: dev
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/rag_assistant
+      CORS_ORIGINS: http://localhost:4200
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/.venv  # keep the host venv out of the container
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      API_URL: http://backend:5000
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # use the container's node_modules
+    depends_on:
+      - backend
+
+volumes:
+  pgdata-dev:
